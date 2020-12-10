@@ -1,0 +1,1 @@
+Log files will be dumped in this directory configured by bin/logging.conf
