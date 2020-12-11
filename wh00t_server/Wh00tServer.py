@@ -20,31 +20,31 @@ class Wh00tServer:
     BUFFER_SIZE = 1024
     EXIT_STRING = '/exit'
 
-    server = None
-    address = None
     clients = {}
     addresses = {}
-    handleOptions = handles()
     messageHistory = []
 
     def __init__(self, logging_object, home_path, port):
         self.home_path = home_path
         self.logger = logging_object.getLogger(type(self).__name__)
         self.logger.setLevel(logging.INFO)
+
+        self.server = None
         self.address = (self.HOST, port)
+        self.handleOptions = handles()
 
     def run(self):
         try:
             self.server = socket(AF_INET, SOCK_STREAM)
             self.server.bind(self.address)
             self.server.listen(5)
-            self.logger.info('Server v{} Waiting for connection...'.format(self.SERVER_VERSION))
+            self.logger.info(f'Server v{self.SERVER_VERSION} Waiting for connection...')
             accept_thread = Thread(target=self.accept_incoming_connections)
             accept_thread.start()
             accept_thread.join()
             self.server.close()
         except OSError as os_error:
-            self.logger.error('Received an OSError: {}'.format(str(os_error)))
+            self.logger.error(f'Received an OSError: {(str(os_error))}')
             self.server.close()
             exit()
         except KeyboardInterrupt:
@@ -62,9 +62,9 @@ class Wh00tServer:
             client = None
             try:
                 client, client_address = self.server.accept()
-                connected_text = '~ You are connected to server v{}... as {} ~'.format(self.SERVER_VERSION, user_handle)
-                intro_help_message = '\n~ Type \'{}\' or press ESC key to exit ~'.format(self.EXIT_STRING)
-                self.logger.info('{}:{} has connected as {}.'.format(client_address[0], client_address[1], user_handle))
+                connected_text = f'~ You are connected to server v{self.SERVER_VERSION}... as {user_handle} ~'
+                intro_help_message = f'\n~ Type \'{self.EXIT_STRING}\' or press ESC key to exit ~'
+                self.logger.info(f'{client_address[0]}:{client_address[1]} has connected as {user_handle}.')
                 client.send(bytes(connected_text, 'utf8'))
                 client.send(bytes(intro_help_message, 'utf8'))
 
@@ -74,44 +74,42 @@ class Wh00tServer:
                 self.addresses[client] = client_address
                 Thread(target=self.handle_client, args=(client, user_handle)).start()
             except IOError as io_error:
-                self.logger.warning("Received IOError for {}: ".format(user_handle), str(io_error))
+                self.logger.warning(f'Received IOError for {user_handle}: {str(io_error)}')
                 self.handle_client_exit(client, user_handle)
                 break
             except ConnectionResetError as connection_reset_error:
-                self.logger.warning("Received ConnectionResetError for {}: ".format(user_handle),
-                                    connection_reset_error)
+                self.logger.warning(f'Received ConnectionResetError for {user_handle}: {str(connection_reset_error)}')
                 self.handle_client_exit(client, user_handle)
                 break
 
     def handle_client(self, client, user_handle):
-        self.broadcast(bytes('\n~ {} has connected at {} ~'.format(user_handle, self.message_time()), 'utf8'))
+        self.broadcast(bytes(f'\n~ {user_handle} has connected at {self.message_time()} ~', 'utf8'))
         self.clients[client] = user_handle
 
         while True:
             try:
                 message = client.recv(self.BUFFER_SIZE)
                 if message != bytes(self.EXIT_STRING, 'utf8'):
-                    self.broadcast(message, '\n| {} ({}) | '.format(user_handle, self.message_time()))
+                    self.broadcast(message, f'\n| {user_handle} ({self.message_time()}) | ')
                     time.sleep(.025)
                 else:
                     client.send(bytes(self.EXIT_STRING, 'utf8'))
                     self.handle_client_exit(client, user_handle)
                     break
             except IOError as io_error:
-                self.logger.warning("Received IOError for {}: ".format(user_handle), str(io_error))
+                self.logger.warning(f'Received IOError for {user_handle}: {str(io_error)}')
                 self.handle_client_exit(client, user_handle)
                 break
             except ConnectionResetError as connection_reset_error:
-                self.logger.warning("Received ConnectionResetError for {}: ".format(user_handle),
-                                    connection_reset_error)
+                self.logger.warning(f'Received ConnectionResetError for {user_handle}: {str(connection_reset_error)}')
                 self.handle_client_exit(client, user_handle)
                 break
 
     def handle_client_exit(self, client, user_handle):
         client.close()
         del self.clients[client]
-        self.logger.info('{} has disconnected.'.format(user_handle))
-        self.broadcast(bytes('\n~ {} has left the chat at {} ~'.format(user_handle, self.message_time()), 'utf8'))
+        self.logger.info(f'{user_handle} has disconnected.')
+        self.broadcast(bytes(f'\n~ {user_handle} has left the chat at {self.message_time()} ~', 'utf8'))
 
     def broadcast(self, message, prefix=''):
         for sock in self.clients:
