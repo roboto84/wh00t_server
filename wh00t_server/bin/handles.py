@@ -1,3 +1,5 @@
+# Array list of random hacker handles (screen names) used in the wh00t chat room
+
 def handles():
     return ["Alien", "4L13N", "Enigma", "3N16M4",
             "Mothership", "M07H3R5H1P", "Fetish", "F3715H",
