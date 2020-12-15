@@ -6,12 +6,12 @@ import os
 import random
 import time
 import logging.config
+from __init__ import __version__
 from dotenv import load_dotenv
 from datetime import datetime
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
-from bin.Data import handles
-from wh00t_server import __version__
+from bin.handles import handles
 
 
 class Wh00tServer:
