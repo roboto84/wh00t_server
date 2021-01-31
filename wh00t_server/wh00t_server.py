@@ -4,6 +4,7 @@
 import ntpath
 import os
 import sys
+import ast
 import random
 import time
 import logging.config
@@ -21,6 +22,8 @@ class Wh00tServer:
     HOST: str = ''
     BUFFER_SIZE: int = 1024
     EXIT_STRING: str = '/exit'
+    APP_ID: str = 'wh00t_server'
+    APP_PROFILE: str = 'app'
 
     clients: dict = {}
     addresses: dict = {}
@@ -64,61 +67,102 @@ class Wh00tServer:
             client: Optional[socket] = None
             try:
                 client, client_address = self.server.accept()
-                connected_text: str = f'~ You are connected to server v{self.SERVER_VERSION}... as {user_handle} ~'
-                intro_help_message: str = f'\n~ Type \'{self.EXIT_STRING}\' or press ESC key to exit ~'
-                self.logger.info(f'{client_address[0]}:{client_address[1]} has connected as {user_handle}.')
-                client.send(bytes(connected_text, 'utf8'))
-                client.send(bytes(intro_help_message, 'utf8'))
-
-                for historical_message in self.messageHistory:
-                    client.send(bytes(historical_message, 'utf8'))
-
                 self.addresses[client]: Any = client_address
+                self.logger.info(f'{client_address[0]}:{client_address[1]} has connected as {user_handle}.')
+                connect_group_alert = self.package_data(self.APP_ID, self.APP_PROFILE,
+                                                        f'~ {self.addresses[client]} has connected'
+                                                        f' at {self.message_time()} ~')
+                self.broadcast(bytes(connect_group_alert, 'utf8'))
                 Thread(target=self.handle_client, args=(client, user_handle)).start()
             except IOError as io_error:
-                self.logger.warning(f'Received IOError for {user_handle}: {str(io_error)}')
+                self.logger.warning(f'Received IOError: {str(io_error)}')
                 self.handle_client_exit(client, user_handle)
                 break
             except ConnectionResetError as connection_reset_error:
-                self.logger.warning(f'Received ConnectionResetError for {user_handle}: {str(connection_reset_error)}')
+                self.logger.warning(f'Received ConnectionResetError: {str(connection_reset_error)}')
                 self.handle_client_exit(client, user_handle)
                 break
 
     def handle_client(self, client: socket, user_handle: str) -> NoReturn:
-        self.broadcast(bytes(f'\n~ {user_handle} has connected at {self.message_time()} ~', 'utf8'))
         self.clients[client]: str = user_handle
 
         while True:
             try:
-                message: bytes = client.recv(self.BUFFER_SIZE)
-                if message != bytes(self.EXIT_STRING, 'utf8'):
-                    self.broadcast(message, f'\n| {user_handle} ({self.message_time()}) | ')
-                    time.sleep(.025)
-                else:
-                    client.send(bytes(self.EXIT_STRING, 'utf8'))
-                    self.handle_client_exit(client, user_handle)
+                package: str = client.recv(self.BUFFER_SIZE).decode('utf8', errors='replace')
+                package_dict: dict = ast.literal_eval(package)
+                if package_dict['message'] == '':
+                    self.clients[client]: str = package_dict['id']
+                    self.logger.info(f'{self.addresses[client]}:{user_handle} is now {self.clients[client]}.')
+                    connect_user_alert = self.package_data('Server', 'app', f'~ You are connected to server '
+                                                                            f'v{self.SERVER_VERSION}... '
+                                                                            f'as {self.clients[client]} ~')
+
+                    client.send(bytes(connect_user_alert, 'utf8'))
+                    if package_dict['profile'] != 'app':
+                        self.client_intro_message_history(client, self.messageHistory)
+                elif package_dict['message'] == self.EXIT_STRING:
+                    new_package = self.package_data(self.APP_ID, self.APP_PROFILE, self.EXIT_STRING)
+                    client.send(bytes(new_package, 'utf8'))
+                    self.handle_client_exit(client, self.clients[client], package_dict['profile'])
                     break
+                else:
+                    self.broadcast(bytes(package, 'utf8'))
+                    time.sleep(.025)
+            except SyntaxError as syntax_error:
+                self.logger.warning(f'Received SyntaxError for {self.clients[client]}: '
+                                    f'{str(syntax_error)}')
+                self.handle_client_exit(client, self.clients[client])
+                break
             except IOError as io_error:
-                self.logger.warning(f'Received IOError for {user_handle}: {str(io_error)}')
-                self.handle_client_exit(client, user_handle)
+                self.logger.warning(f'Received IOError for {self.clients[client]}: {str(io_error)}')
+                self.handle_client_exit(client, self.clients[client])
                 break
             except ConnectionResetError as connection_reset_error:
-                self.logger.warning(f'Received ConnectionResetError for {user_handle}: {str(connection_reset_error)}')
-                self.handle_client_exit(client, user_handle)
+                self.logger.warning(f'Received ConnectionResetError for {self.clients[client]}: '
+                                    f'{str(connection_reset_error)}')
+                self.handle_client_exit(client, self.clients[client])
                 break
 
-    def handle_client_exit(self, client: socket, user_handle: str) -> NoReturn:
+    def handle_client_exit(self, client: socket, user_handle: str, client_profile: Optional[str] = '') -> NoReturn:
         client.close()
         del self.clients[client]
         self.logger.info(f'{user_handle} has disconnected.')
-        self.broadcast(bytes(f'\n~ {user_handle} has left the chat at {self.message_time()} ~', 'utf8'))
+        if client_profile and client_profile == 'user':
+            message = self.package_data(self.APP_ID, self.APP_PROFILE, f'~ {user_handle} has left '
+                                                                       f'the chat at {self.message_time()} ~')
+            self.broadcast(bytes(message, 'utf8'))
 
-    def broadcast(self, message: bytes, prefix: str = '') -> NoReturn:
+    def broadcast(self, message: bytes) -> NoReturn:
         for sock in self.clients:
-            sock.send(bytes(prefix, 'utf8') + message)
-        self.messageHistory.append(prefix + message.decode('utf-8'))
-        if len(self.messageHistory) > 35:
-            self.messageHistory.pop(0)
+            sock.send(message)
+
+        package_dict: dict = ast.literal_eval(message.decode('utf8', errors='replace'))
+        client_profile = package_dict['profile']
+        if client_profile and client_profile == 'user':
+            self.messageHistory.append(message.decode('utf-8'))
+            if len(self.messageHistory) > 35:
+                self.messageHistory.pop(0)
+
+    def client_intro_message_history(self, client, message_history):
+        if len(message_history) > 0:
+            history_message_start = self.package_data(self.APP_ID, self.APP_PROFILE, f'~~~ history start ~~~')
+            history_message_end = self.package_data(self.APP_ID, self.APP_PROFILE, f'~~~ history end ~~~')
+            client.send(bytes(history_message_start, 'utf8'))
+            time.sleep(1.5)
+            for historical_message in message_history:
+                client.send(bytes(historical_message, 'utf8'))
+                time.sleep(1.25)
+            client.send(bytes(history_message_end, 'utf8'))
+
+    @staticmethod
+    def package_data(app_id, app_profile, message) -> str:
+        data_dict: dict = {
+            'id': app_id,
+            'profile': app_profile,
+            'time': datetime.fromtimestamp(time.time()).strftime('%m/%d %H:%M'),
+            'message': message
+        }
+        return str(data_dict)
 
 
 if __name__ == '__main__':
