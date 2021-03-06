@@ -11,10 +11,10 @@ import logging.config
 from typing import List, Any, NoReturn, Tuple, Optional
 from __init__ import __version__
 from dotenv import load_dotenv
-from datetime import datetime
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 from bin.handles import handles
+from wh00t_core.library.utils import package_data, message_time
 
 
 class Wh00tServer:
@@ -57,10 +57,6 @@ class Wh00tServer:
             self.server.close()
             os._exit(1)
 
-    @staticmethod
-    def message_time() -> str:
-        return datetime.fromtimestamp(time.time()).strftime('%m/%d %H:%M')
-
     def accept_incoming_connections(self) -> NoReturn:
         while True:
             user_handle: str = random.choice(self.handleOptions)
@@ -69,9 +65,9 @@ class Wh00tServer:
                 client, client_address = self.server.accept()
                 self.addresses[client]: Any = client_address
                 self.logger.info(f'{client_address[0]}:{client_address[1]} has connected as {user_handle}.')
-                connect_group_alert = self.package_data(self.APP_ID, self.APP_PROFILE,
-                                                        f'~ {self.addresses[client]} has connected'
-                                                        f' at {self.message_time()} ~')
+                connect_group_alert = package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_intro',
+                                                   f'~ {self.addresses[client]} has connected'
+                                                   f' at {message_time()} ~')
                 self.broadcast(bytes(connect_group_alert, 'utf8'))
                 Thread(target=self.handle_client, args=(client, user_handle)).start()
             except IOError as io_error:
@@ -93,15 +89,15 @@ class Wh00tServer:
                 if package_dict['message'] == '':
                     self.clients[client]: str = package_dict['id']
                     self.logger.info(f'{self.addresses[client]}:{user_handle} is now {self.clients[client]}.')
-                    connect_user_alert = self.package_data('Server', 'app', f'~ You are connected to server '
-                                                                            f'v{self.SERVER_VERSION}... '
-                                                                            f'as {self.clients[client]} ~')
-
+                    connect_user_alert = package_data(self.APP_ID, 'app', 'client_intro',
+                                                      f'~ You are connected to server '
+                                                      f'v{self.SERVER_VERSION}... '
+                                                      f'as {self.clients[client]} ~')
                     client.send(bytes(connect_user_alert, 'utf8'))
                     if package_dict['profile'] != 'app':
                         self.client_intro_message_history(client, self.messageHistory)
                 elif package_dict['message'] == self.EXIT_STRING:
-                    new_package = self.package_data(self.APP_ID, self.APP_PROFILE, self.EXIT_STRING)
+                    new_package = package_data(self.APP_ID, self.APP_PROFILE, 'client_exit', self.EXIT_STRING)
                     client.send(bytes(new_package, 'utf8'))
                     self.handle_client_exit(client, self.clients[client], package_dict['profile'])
                     break
@@ -128,8 +124,8 @@ class Wh00tServer:
         del self.clients[client]
         self.logger.info(f'{user_handle} has disconnected.')
         if client_profile and client_profile == 'user':
-            message = self.package_data(self.APP_ID, self.APP_PROFILE, f'~ {user_handle} has left '
-                                                                       f'the chat at {self.message_time()} ~')
+            message = package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_exit',
+                                   f'~ {user_handle} has left the chat at {message_time()} ~')
             self.broadcast(bytes(message, 'utf8'))
 
     def broadcast(self, message: bytes) -> NoReturn:
@@ -143,26 +139,17 @@ class Wh00tServer:
             if len(self.messageHistory) > 35:
                 self.messageHistory.pop(0)
 
-    def client_intro_message_history(self, client, message_history):
+    def client_intro_message_history(self, client, message_history) -> NoReturn:
         if len(message_history) > 0:
-            history_message_start = self.package_data(self.APP_ID, self.APP_PROFILE, f'~~~ history start ~~~')
-            history_message_end = self.package_data(self.APP_ID, self.APP_PROFILE, f'~~~ history end ~~~')
+            history_message_start = package_data(self.APP_ID, self.APP_PROFILE, 'message_history',
+                                                 f'~~~ history start ~~~')
+            history_message_end = package_data(self.APP_ID, self.APP_PROFILE, 'message_history', f'~~~ history end ~~~')
             client.send(bytes(history_message_start, 'utf8'))
             time.sleep(1.5)
             for historical_message in message_history:
                 client.send(bytes(historical_message, 'utf8'))
                 time.sleep(1.25)
             client.send(bytes(history_message_end, 'utf8'))
-
-    @staticmethod
-    def package_data(app_id, app_profile, message) -> str:
-        data_dict: dict = {
-            'id': app_id,
-            'profile': app_profile,
-            'time': datetime.fromtimestamp(time.time()).strftime('%m/%d %H:%M'),
-            'message': message
-        }
-        return str(data_dict)
 
 
 if __name__ == '__main__':
