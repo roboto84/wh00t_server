@@ -4,17 +4,15 @@
 import ntpath
 import os
 import sys
-import ast
 import random
-import time
 import logging.config
-from typing import List, Any, NoReturn, Tuple, Optional
+from typing import List, Any, Tuple, Optional
 from __init__ import __version__
 from dotenv import load_dotenv
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 from bin.handles import handles
-from wh00t_core.library.utils import package_data, message_time
+from wh00t_core.library.utils import NetworkUtils
 
 
 class Wh00tServer:
@@ -38,7 +36,7 @@ class Wh00tServer:
         self.address: Tuple[str, int] = (self.HOST, port)
         self.handleOptions: List[str] = handles()
 
-    def run(self) -> NoReturn:
+    def run(self) -> None:
         try:
             self.server: socket = socket(AF_INET, SOCK_STREAM)
             self.server.bind(self.address)
@@ -57,7 +55,7 @@ class Wh00tServer:
             self.server.close()
             os._exit(1)
 
-    def accept_incoming_connections(self) -> NoReturn:
+    def accept_incoming_connections(self) -> None:
         while True:
             user_handle: str = random.choice(self.handleOptions)
             client: Optional[socket] = None
@@ -65,10 +63,9 @@ class Wh00tServer:
                 client, client_address = self.server.accept()
                 self.addresses[client]: Any = client_address
                 self.logger.info(f'{client_address[0]}:{client_address[1]} has connected as {user_handle}.')
-                connect_group_alert = package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_intro',
-                                                   f'~ {self.addresses[client]} has connected'
-                                                   f' at {message_time()} ~')
-                self.broadcast(bytes(connect_group_alert, 'utf8'))
+                self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_intro',
+                                                         f'~ {self.addresses[client]} has connected'
+                                                         f' at {NetworkUtils.message_time()} ~'))
                 Thread(target=self.handle_client, args=(client, user_handle)).start()
             except IOError as io_error:
                 self.logger.warning(f'Received IOError: {str(io_error)}')
@@ -79,31 +76,31 @@ class Wh00tServer:
                 self.handle_client_exit(client, user_handle)
                 break
 
-    def handle_client(self, client: socket, user_handle: str) -> NoReturn:
+    def handle_client(self, client: socket, user_handle: str) -> None:
         self.clients[client]: str = user_handle
 
         while True:
             try:
-                package: str = client.recv(self.BUFFER_SIZE).decode('utf8', errors='replace')
-                package_dict: dict = ast.literal_eval(package)
-                if package_dict['message'] == '':
-                    self.clients[client]: str = package_dict['id']
-                    self.logger.info(f'{self.addresses[client]}:{user_handle} is now {self.clients[client]}.')
-                    connect_user_alert = package_data(self.APP_ID, 'app', 'client_intro',
-                                                      f'~ You are connected to server '
-                                                      f'v{self.SERVER_VERSION}... '
-                                                      f'as {self.clients[client]} ~')
-                    client.send(bytes(connect_user_alert, 'utf8'))
-                    if package_dict['profile'] != 'app':
-                        self.client_intro_message_history(client, self.messageHistory)
-                elif package_dict['message'] == self.EXIT_STRING:
-                    new_package = package_data(self.APP_ID, self.APP_PROFILE, 'client_exit', self.EXIT_STRING)
-                    client.send(bytes(new_package, 'utf8'))
-                    self.handle_client_exit(client, self.clients[client], package_dict['profile'])
-                    break
-                else:
-                    self.broadcast(bytes(package, 'utf8'))
-                    time.sleep(.025)
+                package: str = NetworkUtils.unpack_byte(client.recv(self.BUFFER_SIZE))
+                package_dict_list: List[dict] = NetworkUtils.unpack_data(package)
+
+                for package_dict in package_dict_list:
+                    if package_dict['message'] == '':
+                        self.clients[client]: str = package_dict['id']
+                        self.logger.info(f'{self.addresses[client]}:{user_handle} is now {self.clients[client]}.')
+                        client.send(NetworkUtils.byte_package(self.APP_ID, 'app', 'client_intro',
+                                                              f'~ You are connected to wh00t server '
+                                                              f'v{self.SERVER_VERSION}... '
+                                                              f'as {self.clients[client]} ~'))
+                        if package_dict['profile'] != 'app':
+                            self.client_intro_message_history(client, self.messageHistory)
+                    elif package_dict['message'] == self.EXIT_STRING:
+                        client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'client_exit',
+                                                              self.EXIT_STRING))
+                        self.handle_client_exit(client, self.clients[client], package_dict['profile'])
+                        return
+                    else:
+                        self.broadcast(NetworkUtils.package_dict(package_dict))
             except SyntaxError as syntax_error:
                 self.logger.warning(f'Received SyntaxError for {self.clients[client]}: '
                                     f'{str(syntax_error)}')
@@ -119,43 +116,41 @@ class Wh00tServer:
                 self.handle_client_exit(client, self.clients[client])
                 break
 
-    def handle_client_exit(self, client: socket, user_handle: str, client_profile: Optional[str] = '') -> NoReturn:
+    def handle_client_exit(self, client: socket, user_handle: str, client_profile: Optional[str] = '') -> None:
         client.close()
         del self.clients[client]
         self.logger.info(f'{user_handle} has disconnected.')
         if client_profile and client_profile == 'user':
-            message = package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_exit',
-                                   f'~ {user_handle} has left the chat at {message_time()} ~')
-            self.broadcast(bytes(message, 'utf8'))
+            self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_exit',
+                                                     f'~ {user_handle} has left the chat at '
+                                                     f'{NetworkUtils.message_time()} ~'))
 
-    def broadcast(self, message: bytes) -> NoReturn:
+    def broadcast(self, message_package: str) -> None:
         for sock in self.clients:
-            sock.send(message)
+            sock.send(NetworkUtils.utf8_bytes(message_package))
+        self.add_to_history(NetworkUtils.unpack_data(message_package)[0])
 
-        package_dict: dict = ast.literal_eval(message.decode('utf8', errors='replace'))
+    def add_to_history(self, package_dict: dict) -> None:
         client_profile = package_dict['profile']
         if client_profile and client_profile == 'user':
-            self.messageHistory.append(message.decode('utf-8'))
+            self.messageHistory.append(NetworkUtils.package_dict(package_dict))
             if len(self.messageHistory) > 35:
                 self.messageHistory.pop(0)
 
-    def client_intro_message_history(self, client, message_history) -> NoReturn:
+    def client_intro_message_history(self, client, message_history) -> None:
         if len(message_history) > 0:
-            history_message_start = package_data(self.APP_ID, self.APP_PROFILE, 'message_history',
-                                                 f'~~~ history start ~~~')
-            history_message_end = package_data(self.APP_ID, self.APP_PROFILE, 'message_history', f'~~~ history end ~~~')
-            client.send(bytes(history_message_start, 'utf8'))
-            time.sleep(1.5)
+            client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'message_history',
+                                                  f'~~~ history start ~~~'))
             for historical_message in message_history:
-                client.send(bytes(historical_message, 'utf8'))
-                time.sleep(1.25)
-            client.send(bytes(history_message_end, 'utf8'))
+                client.send(NetworkUtils.utf8_bytes(historical_message))
+            client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'message_history',
+                                                  f'~~~ history end ~~~'))
 
 
 if __name__ == '__main__':
     HOME_PATH: str = ntpath.dirname(__file__)
     logging.config.fileConfig(fname=os.path.join(HOME_PATH, 'bin/logging.conf'), disable_existing_loggers=False)
-    logger: Any = logging.getLogger(__name__)
+    logger: logging.Logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
     try:
