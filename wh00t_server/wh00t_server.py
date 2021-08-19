@@ -6,19 +6,20 @@ import os
 import sys
 import random
 import logging.config
+import time
 from typing import List, Any, Tuple, Optional
 from __init__ import __version__
 from dotenv import load_dotenv
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 from bin.handles import handles
-from wh00t_core.library.utils import NetworkUtils
+from wh00t_core.library.network_utils import NetworkUtils
 
 
 class Wh00tServer:
     SERVER_VERSION: str = __version__
     HOST: str = ''
-    BUFFER_SIZE: int = 1024
+    BUFFER_SIZE: int = NetworkUtils.BUFFER_SIZE
     EXIT_STRING: str = '/exit'
     APP_ID: str = 'wh00t_server'
     APP_PROFILE: str = 'app'
@@ -139,10 +140,15 @@ class Wh00tServer:
 
     def client_intro_message_history(self, client, message_history) -> None:
         if len(message_history) > 0:
+            counter: int = 1
             client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'message_history',
                                                   f'~~~ history start ~~~'))
             for historical_message in message_history:
+                if counter % 5 == 0:
+                    time.sleep(.8)
                 client.send(NetworkUtils.utf8_bytes(historical_message))
+                counter += 1
+                time.sleep(.08)
             client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'message_history',
                                                   f'~~~ history end ~~~'))
 
