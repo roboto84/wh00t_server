@@ -30,7 +30,7 @@ class Wh00tServer:
 
     def __init__(self, logging_object: Any, home_path: str, port: int):
         self.home_path: str = home_path
-        self.logger: Any = logging_object.getLogger(type(self).__name__)
+        self.logger: logging.Logger = logging_object.getLogger(type(self).__name__)
         self.logger.setLevel(logging.INFO)
 
         self.server: Optional[socket] = None
@@ -132,23 +132,23 @@ class Wh00tServer:
         self.add_to_history(NetworkUtils.unpack_data(message_package)[0])
 
     def add_to_history(self, package_dict: dict) -> None:
-        client_profile = package_dict['profile']
+        client_profile: str = package_dict['profile']
         if client_profile and client_profile == 'user':
             self.messageHistory.append(NetworkUtils.package_dict(package_dict))
             if len(self.messageHistory) > 35:
                 self.messageHistory.pop(0)
 
-    def client_intro_message_history(self, client, message_history) -> None:
+    def client_intro_message_history(self, client: socket, message_history: List[str]) -> None:
         if len(message_history) > 0:
             counter: int = 1
             client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'message_history',
                                                   f'~~~ history start ~~~'))
             for historical_message in message_history:
                 if counter % 5 == 0:
-                    time.sleep(.8)
+                    time.sleep(.9)
                 client.send(NetworkUtils.utf8_bytes(historical_message))
                 counter += 1
-                time.sleep(.08)
+                time.sleep(.1)
             client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'message_history',
                                                   f'~~~ history end ~~~'))
 
