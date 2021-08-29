@@ -9,6 +9,7 @@ __pycache__/
 # Idea
 .idea
 .git
+*.log.*
 
 # Vim
 *.swp
