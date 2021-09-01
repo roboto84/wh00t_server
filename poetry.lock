@@ -127,13 +127,13 @@ develop = false
 [package.source]
 type = "git"
 url = 'https://github.com/roboto84/wh00t_core.git'
-reference = 'v0.2.0'
-resolved_reference = "193de69b03b314a47cc3df9397b072a1e3dc4ca4"
+reference = 'v0.2.1'
+resolved_reference = "75da29497016c728dad1eb5454bfa431044f7d57"
 
 [metadata]
 lock-version = "1.1"
 python-versions = '^3.8'
-content-hash = "aa87b15ff644ca1dd9cdf15905045fa3727e7d7c958d691279fda049a38db4ac"
+content-hash = "b4100d7323f2df26d9861162b79628c8978481b851a80e6ad0eac31ae7f85172"
 
 [metadata.files]
 atomicwrites = [
