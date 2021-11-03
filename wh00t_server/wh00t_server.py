@@ -83,25 +83,29 @@ class Wh00tServer:
         while True:
             try:
                 package: str = NetworkUtils.unpack_byte(client.recv(self.BUFFER_SIZE))
-                package_dict_list: List[dict] = NetworkUtils.unpack_data(package)
+                if len(package) == 0:
+                    self.handle_client_exit(client, self.clients[client])
+                    break
+                else:
+                    package_dict_list: List[dict] = NetworkUtils.unpack_data(package)
 
-                for package_dict in package_dict_list:
-                    if package_dict['message'] == '':
-                        self.clients[client]: str = package_dict['id']
-                        self.logger.info(f'{self.addresses[client]}:{user_handle} is now {self.clients[client]}.')
-                        client.send(NetworkUtils.byte_package(self.APP_ID, 'app', 'client_intro',
-                                                              f'~ You are connected to wh00t server '
-                                                              f'v{self.SERVER_VERSION}... '
-                                                              f'as {self.clients[client]} ~'))
-                        if package_dict['profile'] != 'app':
-                            self.client_intro_message_history(client, self.messageHistory)
-                    elif package_dict['message'] == self.EXIT_STRING:
-                        client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'client_exit',
-                                                              self.EXIT_STRING))
-                        self.handle_client_exit(client, self.clients[client], package_dict['profile'])
-                        return
-                    else:
-                        self.broadcast(NetworkUtils.package_dict(package_dict))
+                    for package_dict in package_dict_list:
+                        if package_dict['message'] == '':
+                            self.clients[client]: str = package_dict['id']
+                            self.logger.info(f'{self.addresses[client]}:{user_handle} is now {self.clients[client]}.')
+                            client.send(NetworkUtils.byte_package(self.APP_ID, 'app', 'client_intro',
+                                                                  f'~ You are connected to wh00t server '
+                                                                  f'v{self.SERVER_VERSION}... '
+                                                                  f'as {self.clients[client]} ~'))
+                            if package_dict['profile'] != 'app':
+                                self.client_intro_message_history(client, self.messageHistory)
+                        elif package_dict['message'] == self.EXIT_STRING:
+                            client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'client_exit',
+                                                                  self.EXIT_STRING))
+                            self.handle_client_exit(client, self.clients[client], package_dict['profile'])
+                            return
+                        else:
+                            self.broadcast(NetworkUtils.package_dict(package_dict))
             except SyntaxError as syntax_error:
                 self.logger.warning(f'Received SyntaxError for {self.clients[client]}: '
                                     f'{str(syntax_error)}')
