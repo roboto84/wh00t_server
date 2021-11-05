@@ -64,7 +64,7 @@ class Wh00tServer:
                 client, client_address = self.server.accept()
                 self.addresses[client]: Any = client_address
                 self.logger.info(f'{client_address[0]}:{client_address[1]} has connected as {user_handle}.')
-                self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_intro',
+                self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, 'debug:broadcast_intro',
                                                          f'~ {self.addresses[client]} has connected'
                                                          f' at {NetworkUtils.message_time()} ~'))
                 Thread(target=self.handle_client, args=(client, user_handle)).start()
@@ -78,8 +78,6 @@ class Wh00tServer:
                 break
 
     def handle_client(self, client: socket, user_handle: str) -> None:
-        self.clients[client]: str = user_handle
-
         while True:
             try:
                 package: str = NetworkUtils.unpack_byte(client.recv(self.BUFFER_SIZE))
@@ -91,7 +89,11 @@ class Wh00tServer:
 
                     for package_dict in package_dict_list:
                         if package_dict['message'] == '':
-                            self.clients[client]: str = package_dict['id']
+                            new_user_handle: str = package_dict['id']
+                            self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_intro',
+                                                                     f'~ {new_user_handle} has connected'
+                                                                     f' at {NetworkUtils.message_time()} ~'))
+                            self.clients[client]: str = new_user_handle
                             self.logger.info(f'{self.addresses[client]}:{user_handle} is now {self.clients[client]}.')
                             client.send(NetworkUtils.byte_package(self.APP_ID, 'app', 'client_intro',
                                                                   f'~ You are connected to wh00t server '
