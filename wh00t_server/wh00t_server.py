@@ -90,7 +90,9 @@ class Wh00tServer:
                     for package_dict in package_dict_list:
                         if package_dict['message'] == '':
                             new_user_handle: str = package_dict['id']
-                            self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_intro',
+                            message_category: str = 'debug:broadcast_intro' if package_dict['profile'] == 'app' \
+                                else 'broadcast_intro'
+                            self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, message_category,
                                                                      f'~ {new_user_handle} has connected'
                                                                      f' at {NetworkUtils.message_time()} ~'))
                             self.clients[client]: str = new_user_handle
