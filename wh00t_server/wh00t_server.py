@@ -21,6 +21,7 @@ class Wh00tServer:
     HOST: str = ''
     BUFFER_SIZE: int = NetworkUtils.BUFFER_SIZE
     EXIT_STRING: str = '/exit'
+    SELF_DESTRUCT: str = '/boom'
     APP_ID: str = 'wh00t_server'
     APP_PROFILE: str = 'app'
 
@@ -141,7 +142,7 @@ class Wh00tServer:
 
     def add_to_history(self, package_dict: dict) -> None:
         client_profile: str = package_dict['profile']
-        if client_profile and client_profile == 'user':
+        if client_profile and client_profile == 'user' and package_dict['message'].find(self.SELF_DESTRUCT) == -1:
             self.messageHistory.append(NetworkUtils.package_dict(package_dict))
             if len(self.messageHistory) > 35:
                 self.messageHistory.pop(0)
