@@ -14,152 +14,161 @@ from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 from bin.handles import handles
 from wh00t_core.library.network_utils import NetworkUtils
+from wh00t_core.library.network_commons import NetworkCommons
 
 
 class Wh00tServer:
-    SERVER_VERSION: str = __version__
-    HOST: str = ''
-    BUFFER_SIZE: int = NetworkUtils.BUFFER_SIZE
-    EXIT_STRING: str = '/exit'
-    SELF_DESTRUCT: str = '/boom'
-    APP_ID: str = 'wh00t_server'
-    APP_PROFILE: str = 'app'
+    _SERVER_VERSION: str = __version__
+    _HOST: str = ''
 
-    clients: dict = {}
-    addresses: dict = {}
-    messageHistory: List[str] = []
+    _network_utils: NetworkUtils = NetworkUtils()
+    _network_commons: NetworkCommons = NetworkCommons()
+    _clients: dict = {}
+    _addresses: dict = {}
+    _messageHistory: List[str] = []
 
-    def __init__(self, logging_object: Any, home_path: str, port: int):
-        self.home_path: str = home_path
-        self.logger: logging.Logger = logging_object.getLogger(type(self).__name__)
-        self.logger.setLevel(logging.INFO)
+    def __init__(self, logging_object: Any, port: int):
+        self._logger: logging.Logger = logging_object.getLogger(type(self).__name__)
+        self._logger.setLevel(logging.INFO)
 
-        self.server: Optional[socket] = None
-        self.address: Tuple[str, int] = (self.HOST, port)
-        self.handleOptions: List[str] = handles()
+        self._server: Optional[socket] = None
+        self._address: Tuple[str, int] = (self._HOST, port)
+        self._handleOptions: List[str] = handles()
 
     def run(self) -> None:
         try:
-            self.server: socket = socket(AF_INET, SOCK_STREAM)
-            self.server.bind(self.address)
-            self.server.listen(5)
-            self.logger.info(f'Server v{self.SERVER_VERSION} Waiting for connection...')
-            accept_thread: Thread = Thread(target=self.accept_incoming_connections)
+            self._server: socket = socket(AF_INET, SOCK_STREAM)
+            self._server.bind(self._address)
+            self._server.listen(5)
+            self._logger.info(f'Server v{self._SERVER_VERSION} Waiting for connection...')
+            accept_thread: Thread = Thread(target=self._accept_incoming_connections)
             accept_thread.start()
             accept_thread.join()
-            self.server.close()
+            self._server.close()
         except OSError as os_error:
-            self.logger.error(f'Received an OSError: {(str(os_error))}')
-            self.server.close()
+            self._logger.error(f'Received an OSError: {(str(os_error))}')
+            self._server.close()
             sys.exit()
         except KeyboardInterrupt:
-            self.logger.warning('Received a KeyboardInterrupt... now exiting')
-            self.server.close()
+            self._logger.warning('Received a KeyboardInterrupt... now exiting')
+            self._server.close()
             os._exit(1)
 
-    def accept_incoming_connections(self) -> None:
+    def _accept_incoming_connections(self) -> None:
         while True:
-            user_handle: str = random.choice(self.handleOptions)
+            user_handle: str = random.choice(self._handleOptions)
             client: Optional[socket] = None
             try:
-                client, client_address = self.server.accept()
-                self.addresses[client]: Any = client_address
-                self.logger.info(f'{client_address[0]}:{client_address[1]} has connected as {user_handle}.')
-                self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, 'debug:broadcast_intro',
-                                                         f'~ {self.addresses[client]} has connected'
-                                                         f' at {NetworkUtils.message_time()} ~'))
-                Thread(target=self.handle_client, args=(client, user_handle)).start()
+                client, client_address = self._server.accept()
+                self._addresses[client]: Any = client_address
+                self._logger.info(f'{client_address[0]}:{client_address[1]} has connected as {user_handle}.')
+                self._broadcast(self._server_package('debug:broadcast_intro',
+                                                     f'~ {self._addresses[client]} has connected'
+                                                     f' at {NetworkUtils.message_time()} ~'))
+                Thread(target=self._handle_client, args=(client, user_handle)).start()
             except IOError as io_error:
-                self.logger.warning(f'Received IOError: {str(io_error)}')
-                self.handle_client_exit(client, user_handle)
+                self._logger.warning(f'Received IOError: {str(io_error)}')
+                self._handle_client_exit(client, user_handle)
                 break
             except ConnectionResetError as connection_reset_error:
-                self.logger.warning(f'Received ConnectionResetError: {str(connection_reset_error)}')
-                self.handle_client_exit(client, user_handle)
+                self._logger.warning(f'Received ConnectionResetError: {str(connection_reset_error)}')
+                self._handle_client_exit(client, user_handle)
                 break
 
-    def handle_client(self, client: socket, user_handle: str) -> None:
+    def _handle_client(self, client: socket, user_handle: str) -> None:
         while True:
             try:
-                package: str = NetworkUtils.unpack_byte(client.recv(self.BUFFER_SIZE))
+                package: str = self._network_utils.unpack_byte(client.recv(self._network_commons.get_buffer_size()))
                 if len(package) == 0:
-                    self.handle_client_exit(client, self.clients[client])
+                    self._handle_client_exit(client, self._clients[client])
                     break
                 else:
                     package_dict_list: List[dict] = NetworkUtils.unpack_data(package)
-
                     for package_dict in package_dict_list:
                         if package_dict['message'] == '':
                             new_user_handle: str = package_dict['id']
-                            message_category: str = 'debug:broadcast_intro' if package_dict['profile'] == 'app' \
-                                else 'broadcast_intro'
-                            self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, message_category,
-                                                                     f'~ {new_user_handle} has connected'
-                                                                     f' at {NetworkUtils.message_time()} ~'))
-                            self.clients[client]: str = new_user_handle
-                            self.logger.info(f'{self.addresses[client]}:{user_handle} is now {self.clients[client]}.')
-                            client.send(NetworkUtils.byte_package(self.APP_ID, 'app', 'client_intro',
-                                                                  f'~ You are connected to wh00t server '
-                                                                  f'v{self.SERVER_VERSION}... '
-                                                                  f'as {self.clients[client]} ~'))
-                            if package_dict['profile'] != 'app':
-                                self.client_intro_message_history(client, self.messageHistory)
-                        elif package_dict['message'] == self.EXIT_STRING:
-                            client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'client_exit',
-                                                                  self.EXIT_STRING))
-                            self.handle_client_exit(client, self.clients[client], package_dict['profile'])
+                            client_is_app: bool = package_dict['profile'] == self._network_commons.get_app_profile()
+                            if client_is_app:
+                                message_category: str = 'debug:broadcast_intro'
+                            else:
+                                message_category: str = 'broadcast_intro'
+                            self._broadcast(self._server_package(message_category,
+                                                                 f'~ {new_user_handle} has connected'
+                                                                 f' at {NetworkUtils.message_time()} ~'))
+                            self._clients[client]: str = new_user_handle
+                            self._logger.info(
+                                f'{self._addresses[client]}:{user_handle} is now {self._clients[client]}.')
+                            client.send(self._server_package('client_intro',
+                                                             f'~ You are connected to wh00t server '
+                                                             f'v{self._SERVER_VERSION}... '
+                                                             f'as {self._clients[client]} ~'))
+                            if not client_is_app:
+                                self._client_intro_message_history(client, self._messageHistory)
+                        elif package_dict['message'] == self._network_commons.get_exit_command():
+                            client.send(self._server_package('client_exit', self._network_commons.get_exit_command()))
+                            self._handle_client_exit(client, self._clients[client], package_dict['profile'])
                             return
                         else:
-                            self.broadcast(NetworkUtils.package_dict(package_dict))
+                            self._broadcast(self._network_utils.utf8_bytes(NetworkUtils.package_dict(package_dict)))
             except SyntaxError as syntax_error:
-                self.logger.warning(f'Received SyntaxError for {self.clients[client]}: '
-                                    f'{str(syntax_error)}')
-                self.handle_client_exit(client, self.clients[client])
+                self._logger.warning(f'Received SyntaxError for {self._clients[client]}: '
+                                     f'{str(syntax_error)}')
+                self._handle_client_exit(client, self._clients[client])
                 break
             except IOError as io_error:
-                self.logger.warning(f'Received IOError for {self.clients[client]}: {str(io_error)}')
-                self.handle_client_exit(client, self.clients[client])
+                self._logger.warning(f'Received IOError for {self._clients[client]}: {str(io_error)}')
+                self._handle_client_exit(client, self._clients[client])
                 break
             except ConnectionResetError as connection_reset_error:
-                self.logger.warning(f'Received ConnectionResetError for {self.clients[client]}: '
-                                    f'{str(connection_reset_error)}')
-                self.handle_client_exit(client, self.clients[client])
+                self._logger.warning(f'Received ConnectionResetError for {self._clients[client]}: '
+                                     f'{str(connection_reset_error)}')
+                self._handle_client_exit(client, self._clients[client])
                 break
 
-    def handle_client_exit(self, client: socket, user_handle: str, client_profile: Optional[str] = '') -> None:
+    def _handle_client_exit(self, client: socket, user_handle: str, client_profile: Optional[str] = '') -> None:
         client.close()
-        del self.clients[client]
-        self.logger.info(f'{user_handle} has disconnected.')
-        if client_profile and client_profile == 'user':
-            self.broadcast(NetworkUtils.package_data(self.APP_ID, self.APP_PROFILE, 'broadcast_exit',
-                                                     f'~ {user_handle} has left the chat at '
-                                                     f'{NetworkUtils.message_time()} ~'))
+        del self._clients[client]
+        self._logger.info(f'{user_handle} has disconnected.')
+        if client_profile and client_profile == self._network_commons.get_user_profile():
+            self._broadcast(self._server_package('broadcast_exit',
+                                                 f'~ {user_handle} has left the chat at '
+                                                 f'{NetworkUtils.message_time()} ~'))
 
-    def broadcast(self, message_package: str) -> None:
-        for sock in self.clients:
-            sock.send(NetworkUtils.utf8_bytes(message_package))
-        self.add_to_history(NetworkUtils.unpack_data(message_package)[0])
+    def _broadcast(self, message_package: bytes) -> None:
+        for sock in self._clients:
+            sock.send(message_package)
+        self._add_to_history(self._network_utils.unpack_data(self._network_utils.unpack_byte(message_package))[0])
 
-    def add_to_history(self, package_dict: dict) -> None:
+    def _add_to_history(self, package_dict: dict) -> None:
         client_profile: str = package_dict['profile']
-        if client_profile and client_profile == 'user' and package_dict['message'].find(self.SELF_DESTRUCT) == -1:
-            self.messageHistory.append(NetworkUtils.package_dict(package_dict))
-            if len(self.messageHistory) > 35:
-                self.messageHistory.pop(0)
+        max_message_history: int = 35
+        if client_profile and client_profile == self._network_commons.get_user_profile() and \
+                not self._self_destruct(package_dict['message']):
+            self._messageHistory.append(NetworkUtils.package_dict(package_dict))
+            if len(self._messageHistory) > max_message_history:
+                self._messageHistory.pop(0)
 
-    def client_intro_message_history(self, client: socket, message_history: List[str]) -> None:
+    def _client_intro_message_history(self, client: socket, message_history: List[str]) -> None:
         if len(message_history) > 0:
             counter: int = 1
-            client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'message_history',
-                                                  f'~~~ history start ~~~'))
+            message_category: str = 'message_history'
+            client.send(self._server_package(message_category, f'~~~ history start ~~~'))
             for historical_message in message_history:
                 if counter % 5 == 0:
                     time.sleep(.9)
-                client.send(NetworkUtils.utf8_bytes(historical_message))
+                client.send(self._network_utils.utf8_bytes(historical_message))
                 counter += 1
                 time.sleep(.1)
-            client.send(NetworkUtils.byte_package(self.APP_ID, self.APP_PROFILE, 'message_history',
-                                                  f'~~~ history end ~~~'))
+            client.send(self._server_package(message_category, f'~~~ history end ~~~'))
+
+    def _server_package(self, message_category: str, message: str) -> bytes:
+        return self._network_utils.byte_package(self._network_commons.get_server_id(),
+                                                self._network_commons.get_app_profile(),
+                                                message_category,
+                                                message)
+
+    def _self_destruct(self, message) -> bool:
+        return message.find(self._network_commons.get_destruct_command()) != -1
 
 
 if __name__ == '__main__':
@@ -171,7 +180,7 @@ if __name__ == '__main__':
     try:
         load_dotenv()
         SERVER_PORT: int = int(os.getenv('SERVER_PORT'))
-        wh00t_server: Wh00tServer = Wh00tServer(logging, HOME_PATH, SERVER_PORT)
+        wh00t_server: Wh00tServer = Wh00tServer(logging, SERVER_PORT)
         wh00t_server.run()
     except TypeError as type_error:
         logger.error('Received TypeError: Check that the .env project file is configured correctly')
