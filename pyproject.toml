@@ -1,6 +1,6 @@
 [tool.poetry]
 name = 'wh00t_server'
-version = '1.1.0'
+version = '1.1.1'
 description = 'Simple python LAN chat server'
 authors = ['roboto84 <7658704+roboto84@users.noreply.github.com>']
 license = 'GPL-3.0-or-later'
