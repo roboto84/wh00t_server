@@ -88,7 +88,7 @@ class Wh00tServer:
                     package_dict_list: List[dict] = NetworkUtils.unpack_data(package)
                     for package_dict in package_dict_list:
                         if package_dict['message'] == '':
-                            new_client_handle: str = package_dict['id']
+                            new_client_handle: str = package_dict['username']
                             new_client_profile: str = package_dict['profile']
                             message_category: str = 'broadcast_intro'
                             client_is_app: bool = new_client_profile == self._network_commons.get_app_profile()
