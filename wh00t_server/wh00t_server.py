@@ -92,6 +92,7 @@ class Wh00tServer:
                             new_client_profile: str = package_dict['profile']
                             message_category: str = 'broadcast_intro'
                             client_is_app: bool = new_client_profile == self._network_commons.get_app_profile()
+                            client_is_roboto: bool = package_dict['id'] == 'roboto_api'
                             if client_is_app:
                                 message_category: str = f'debug:{message_category}'
                             self._broadcast(self._server_package(message_category,
@@ -110,7 +111,7 @@ class Wh00tServer:
                                                      f'~ You are connected to wh00t server '
                                                      f'v{self._SERVER_VERSION}... '
                                                      f'as {self._clients[client]["handle"]} ~')))
-                            if not client_is_app:
+                            if not client_is_app or client_is_roboto:
                                 self._client_intro_message_history(client, self._messageHistory)
                         elif package_dict['message'] == self._network_commons.get_exit_command():
                             client.send(self._network_utils.utf8_bytes(
@@ -150,7 +151,8 @@ class Wh00tServer:
             if not secret_message or (secret_message and
                                       self._clients[sock]['profile'] == self._network_commons.get_user_profile()):
                 sock.send(self._network_utils.utf8_bytes(message_package))
-        if not secret_message and unpacked_package['profile'] == self._network_commons.get_user_profile():
+        if (not secret_message and unpacked_package['profile'] == self._network_commons.get_user_profile()) or \
+                (unpacked_package['id'] == 'roboto_api' and unpacked_package['category'] == 'chat_message'):
             self._add_to_history(self._network_utils.unpack_data(message_package)[0])
 
     def _add_to_history(self, package_dict: dict) -> None:
