@@ -7,7 +7,7 @@ import sys
 import random
 import logging.config
 import time
-from typing import List, Any, Tuple, Optional
+from typing import Any, Optional
 from __init__ import __version__
 from dotenv import load_dotenv
 from socket import AF_INET, socket, SOCK_STREAM
@@ -24,15 +24,15 @@ class Wh00tServer:
     _network_utils: NetworkUtils = NetworkUtils()
     _network_commons: NetworkCommons = NetworkCommons()
     _clients: dict = {}
-    _messageHistory: List[str] = []
+    _message_history: list[str] = []
 
     def __init__(self, logging_object: Any, port: int):
         self._logger: logging.Logger = logging_object.getLogger(type(self).__name__)
         self._logger.setLevel(logging.INFO)
 
         self._server: Optional[socket] = None
-        self._address: Tuple[str, int] = (self._HOST, port)
-        self._handleOptions: List[str] = handles()
+        self._address: tuple[str, int] = (self._HOST, port)
+        self._handleOptions: list[str] = handles()
 
     def run(self) -> None:
         try:
@@ -85,7 +85,7 @@ class Wh00tServer:
                     self._handle_client_exit(client, self._clients[client])
                     break
                 else:
-                    package_dict_list: List[dict] = NetworkUtils.unpack_data(package)
+                    package_dict_list: list[dict] = NetworkUtils.unpack_data(package)
                     for package_dict in package_dict_list:
                         if package_dict['message'] == '':
                             new_client_handle: str = package_dict['username']
@@ -112,7 +112,7 @@ class Wh00tServer:
                                                      f'v{self._SERVER_VERSION}... '
                                                      f'as {self._clients[client]["handle"]} ~')))
                             if not client_is_app or client_is_roboto:
-                                self._client_intro_message_history(client, self._messageHistory)
+                                self._client_intro_message_history(client, self._message_history)
                         elif package_dict['message'] == self._network_commons.get_exit_command():
                             client.send(self._network_utils.utf8_bytes(
                                 self._server_package('client_exit', self._network_commons.get_exit_command())))
@@ -157,11 +157,11 @@ class Wh00tServer:
 
     def _add_to_history(self, package_dict: dict) -> None:
         max_message_history: int = 35
-        self._messageHistory.append(NetworkUtils.package_dict(package_dict))
-        if len(self._messageHistory) > max_message_history:
-            self._messageHistory.pop(0)
+        self._message_history.append(NetworkUtils.package_dict(package_dict))
+        if len(self._message_history) >= max_message_history:
+            self._message_history.pop(0)
 
-    def _client_intro_message_history(self, client: socket, message_history: List[str]) -> None:
+    def _client_intro_message_history(self, client: socket, message_history: list[str]) -> None:
         if len(message_history) > 0:
             counter: int = 1
             message_category: str = 'message_history'
