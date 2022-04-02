@@ -6,12 +6,12 @@ authors = ['roboto84 <7658704+roboto84@users.noreply.github.com>']
 license = 'GPL-3.0-or-later'
 
 [tool.poetry.dependencies]
-python = '^3.8'
+python = '^3.10'
 python-dotenv = '^0.15.0'
-wh00t-core = {git = 'https://github.com/roboto84/wh00t_core.git', tag = 'v0.4.2'}
+wh00t-core = {git = 'https://github.com/roboto84/wh00t_core.git', tag = 'v0.4.3'}
 
 [tool.poetry.dev-dependencies]
-pytest = '^5.2'
+pytest = '^6.2.5'
 
 [build-system]
 requires = ['poetry-core>=1.0.0']

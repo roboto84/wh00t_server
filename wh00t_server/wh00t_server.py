@@ -146,13 +146,15 @@ class Wh00tServer:
 
     def _broadcast(self, message_package: str) -> None:
         unpacked_package: dict = self._network_utils.unpack_data(message_package)[0]
-        secret_message: bool = self._secret_message(unpacked_package['profile'], unpacked_package['message'])
+        secret_message: bool = self._network_commons.is_secret_message(unpacked_package['message'])
         for sock in self._clients:
             if not secret_message or (secret_message and
-                                      self._clients[sock]['profile'] == self._network_commons.get_user_profile()):
+                                      (self._clients[sock]['profile'] == self._network_commons.get_user_profile() or
+                                       self._clients[sock]['handle'] == 'roboto_api')):
                 sock.send(self._network_utils.utf8_bytes(message_package))
-        if (not secret_message and unpacked_package['profile'] == self._network_commons.get_user_profile()) or \
-                (unpacked_package['id'] == 'roboto_api' and unpacked_package['category'] == 'chat_message'):
+        if (not secret_message and (unpacked_package['profile'] == self._network_commons.get_user_profile() or
+                                    unpacked_package['id'] == 'roboto_api' and
+                                    unpacked_package['category'] == 'chat_message')):
             self._add_to_history(self._network_utils.unpack_data(message_package)[0])
 
     def _add_to_history(self, package_dict: dict) -> None:
@@ -179,10 +181,6 @@ class Wh00tServer:
                                                 self._network_commons.get_app_profile(),
                                                 message_category,
                                                 message)
-
-    def _secret_message(self, client_profile: str, message: str) -> bool:
-        return client_profile == self._network_commons.get_user_profile() and \
-               self._network_commons.get_destruct_command() in message
 
 
 if __name__ == '__main__':
