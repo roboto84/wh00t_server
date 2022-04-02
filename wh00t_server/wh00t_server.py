@@ -158,7 +158,7 @@ class Wh00tServer:
             self._add_to_history(self._network_utils.unpack_data(message_package)[0])
 
     def _add_to_history(self, package_dict: dict) -> None:
-        max_message_history: int = 35
+        max_message_history: int = self._network_commons.get_message_history_limit()
         self._message_history.append(NetworkUtils.package_dict(package_dict))
         if len(self._message_history) >= max_message_history:
             self._message_history.pop(0)
