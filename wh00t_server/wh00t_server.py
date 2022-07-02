@@ -119,6 +119,9 @@ class Wh00tServer:
                             self._handle_client_exit(client, self._clients[client])
                             return
                         else:
+                            if self._network_commons.is_history_clear_command(package_dict['message']):
+                                self._clear_message_history()
+                                self._logger.info('Message history has been cleared')
                             self._broadcast(NetworkUtils.package_dict(package_dict))
             except SyntaxError as syntax_error:
                 self._logger.warning(f'Received SyntaxError for {self._clients[client]["handle"]}: '
@@ -175,6 +178,9 @@ class Wh00tServer:
                 counter += 1
                 time.sleep(.1)
             client.send(self._network_utils.utf8_bytes(self._server_package(message_category, f'~ history end ~')))
+
+    def _clear_message_history(self) -> None:
+        self._message_history = []
 
     def _server_package(self, message_category: str, message: str) -> str:
         return self._network_utils.package_data(self._network_commons.get_server_id(),
