@@ -157,7 +157,7 @@ class Wh00tServer:
                 sock.send(self._network_utils.utf8_bytes(message_package))
         if (not secret_message and (unpacked_package['profile'] == self._network_commons.get_user_profile() or
                                     unpacked_package['id'] == 'roboto_api' and
-                                    unpacked_package['category'] == 'chat_message')):
+                                    unpacked_package['category'] == self._network_commons.get_chat_message_category())):
             self._add_to_history(self._network_utils.unpack_data(message_package)[0])
 
     def _add_to_history(self, package_dict: dict) -> None:
