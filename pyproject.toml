@@ -11,7 +11,7 @@ python-dotenv = '^0.15.0'
 wh00t-core = {git = 'https://github.com/roboto84/wh00t_core.git', tag = 'v0.5.1'}
 
 [tool.poetry.dev-dependencies]
-pytest = '^6.2.5'
+pytest = '^7.2.0'
 
 [build-system]
 requires = ['poetry-core>=1.0.0']
