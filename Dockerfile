@@ -6,7 +6,7 @@ WORKDIR /usr/src/wh00t_server
 RUN apt-get update -y
 
 # Install poetry
-ENV POETRY_VERSION=1.2.0
+ENV POETRY_VERSION=1.4.2
 RUN apt-get install -y curl && \
     curl -sSL https://install.python-poetry.org | POETRY_VERSION=${POETRY_VERSION} python3 -
 ENV PATH="/root/.local/bin:$PATH"
