@@ -5,19 +5,19 @@
 </div>
 
 ## About
-`wh00t` is a simple Python LAN chat server. `wh00t_server` functions as part of the larger **wh00t** project. This particular repository's purpose is to act as a chat room server.
+`Wh00t` is a simple Python LAN chat server. `wh00t_server` functions as part of the larger **Wh00t** project. This particular repository's purpose is to act as a chat room server.
 
 ## Install
-To see `wh00t_server` used on the `roboto_ui` go to the [roboto](https://github.com/roboto84/roboto) repo and follow its README.
+To see `wh00t_server` used on the `bind_ui` go to the [Bind](https://github.com/roboto84/bind) repo and follow its README.
 
 <div align="center">
-	<img src="assets/wh00t_server_1.png" title="wh00t on Roboto UI">
+	<img src="assets/wh00t_server_1.png" title="Wh00t on Bind UI">
     <br/>
-    wh00t on Roboto UI
+    Wh00t on Bind UI
     <br/><br/>
 </div>
 
-However, if you would like to run `wh00t_server` outside of `roboto` follow these instructions:
+However, if you would like to run `wh00t_server` outside of `Bind` follow these instructions:
 
 This project is managed with [Poetry](https://github.com/python-poetry/poetry). With Poetry installed correctly, simply clone this project and install its dependencies:
 - Clone repo
