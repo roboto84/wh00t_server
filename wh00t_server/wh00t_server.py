@@ -20,6 +20,7 @@ from wh00t_core.library.network_commons import NetworkCommons
 class Wh00tServer:
     _SERVER_VERSION: str = __version__
     _HOST: str = ''
+    _COADJUTOR_ID = 'bind_api'
 
     _network_utils: NetworkUtils = NetworkUtils()
     _network_commons: NetworkCommons = NetworkCommons()
@@ -92,7 +93,7 @@ class Wh00tServer:
                             new_client_profile: str = package_dict['profile']
                             message_category: str = 'broadcast_intro'
                             client_is_app: bool = new_client_profile == self._network_commons.get_app_profile()
-                            client_is_roboto: bool = package_dict['id'] == 'roboto_api'
+                            client_is_coadjutor: bool = package_dict['id'] == self._COADJUTOR_ID
                             if client_is_app:
                                 message_category: str = f'debug:{message_category}'
                             self._broadcast(self._server_package(message_category,
@@ -111,7 +112,7 @@ class Wh00tServer:
                                                      f'~ You are connected to wh00t server '
                                                      f'v{self._SERVER_VERSION}... '
                                                      f'as {self._clients[client]["handle"]} ~')))
-                            if not client_is_app or client_is_roboto:
+                            if not client_is_app or client_is_coadjutor:
                                 self._client_intro_message_history(client, self._message_history)
                         elif package_dict['message'] == self._network_commons.get_exit_command():
                             client.send(self._network_utils.utf8_bytes(
@@ -153,10 +154,10 @@ class Wh00tServer:
         for sock in self._clients:
             if not secret_message or (secret_message and
                                       (self._clients[sock]['profile'] == self._network_commons.get_user_profile() or
-                                       self._clients[sock]['handle'] == 'roboto_api')):
+                                       self._clients[sock]['handle'] == self._COADJUTOR_ID)):
                 sock.send(self._network_utils.utf8_bytes(message_package))
         if (not secret_message and (unpacked_package['profile'] == self._network_commons.get_user_profile() or
-                                    unpacked_package['id'] == 'roboto_api' and
+                                    unpacked_package['id'] == self._COADJUTOR_ID and
                                     unpacked_package['category'] == self._network_commons.get_chat_message_category())):
             self._add_to_history(self._network_utils.unpack_data(message_package)[0])
 
